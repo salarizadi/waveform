@@ -1,27 +1,27 @@
 # jQuery Waveform Player
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+A lightweight and customizable audio waveform visualization plugin for jQuery. This plugin creates an interactive waveform display for audio files with real-time progress tracking and seeking capabilities.
 
-A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates.
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/salarizadi/waveform)
+[![Demo on CodePen](https://img.shields.io/badge/Demo-CodePen-blue)](https://codepen.io/salariz/pen/PwoQpXp)
 
 ## Demo
 
-[View Live Demo on CodePen](https://codepen.io/salariz/pen/PwoQpXp)
+Check out the [live demo on CodePen](https://codepen.io/salariz/pen/PwoQpXp)
 
 ## Features
 
-- 🎵 Smooth audio visualization with customizable segments
-- 📱 Touch-friendly interface with swipe support
-- 🖱️ Desktop mouse controls 
-- ⚡ Real-time progress updates
-- 🎨 Customizable colors and appearance
-- 📊 Configurable segment count and dimensions
-- 🔄 Progress callbacks for integration
+- 🎵 Real-time waveform visualization
+- 🎨 Customizable appearance
+- 📱 Mobile-friendly touch interactions
+- 🔍 Seeking functionality
+- ⚡ Optimized for large audio files
+- 🎚️ Adjustable sampling quality
+- 📊 Progress tracking
+- 🎯 Event callbacks
 
 ## Installation
-
-Include jQuery and the Waveform Player plugin in your HTML:
 
 ```html
 <script src="jquery.min.js"></script>
@@ -30,70 +30,107 @@ Include jQuery and the Waveform Player plugin in your HTML:
 
 ## Basic Usage
 
-1. Add an audio element to your HTML:
-
 ```html
-<audio id="audio-element" src="path/to/your/audio.mp3"></audio>
 <div id="waveform"></div>
-```
+<audio id="audio-element"></audio>
 
-2. Initialize the waveform player:
-
-```javascript
-$('#waveform').waveform({
-    audioElement: '#audio-element'
+<script>
+$(document).ready(function() {
+    $('#waveform').waveform({
+        audioElement: '#audio-element',
+        audioContext: new (window.AudioContext || window.webkitAudioContext)(),
+        segments: 100,
+        activeColor: "#2196F3",
+        inactiveColor: "#E3F2FD"
+    });
 });
+</script>
 ```
 
 ## Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `audioElement` | String | '#audio-element' | Audio element selector |
-| `segments` | Number | 50 | Number of waveform segments |
-| `minHeight` | Number | 30 | Minimum height percentage |
-| `maxHeight` | Number | 70 | Maximum height percentage |
-| `segmentGap` | Number | 1 | Gap between segments (pixels) |
-| `activeColor` | String | '#2196F3' | Color for played segments |
-| `inactiveColor` | String | '#ccc' | Color for unplayed segments |
-| `onProgressChange` | Function | null | Callback when progress changes |
-| `onSeek` | Function | null | Callback when seeking ends |
-
-## Advanced Usage
-
-```javascript
-$('#waveform').waveform({
-    audioElement: '#custom-audio',
-    segments: 100,
-    minHeight: 20,
-    maxHeight: 80,
-    segmentGap: 2,
-    activeColor: '#FF4081',
-    inactiveColor: '#E0E0E0',
-    onProgressChange: function(progress) {
-        console.log('Current progress:', progress);
-    },
-    onSeek: function(position) {
-        console.log('Seeked to:', position);
-    }
-});
-```
+| `audioElement` | String | "#audio-element" | Selector for the audio element |
+| `audioContext` | AudioContext | null | Web Audio API context |
+| `segments` | Number | 100 | Number of waveform segments |
+| `segmentGap` | Number | 1 | Gap between segments in pixels |
+| `activeColor` | String | "#2196F3" | Color of the played portion |
+| `inactiveColor` | String | "#ccc" | Color of the unplayed portion |
+| `backgroundColor` | String | "#f5f5f5" | Background color of the container |
+| `samplingQuality` | String | "medium" | Quality of waveform sampling ("low", "medium", "high") |
+| `loadingText` | String | "Loading waveform..." | Text shown while generating waveform |
 
 ## Events
 
-The plugin provides two callback events:
+| Event | Description |
+|-------|-------------|
+| `onProgressChange` | Triggered when playback progress changes |
+| `onSeek` | Triggered when user seeks to a new position |
 
-- `onProgressChange`: Triggered when the playback progress changes
-- `onSeek`: Triggered when the user finishes seeking to a new position
+## Complete Example
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Waveform Player</title>
+</head>
+<body>
+    <div class="player-wrapper">
+        <input type="file" id="audio-file" accept="audio/*">
+        <div class="controls">
+            <button class="play-button">▶</button>
+            <div id="waveform"></div>
+            <div class="time-display">0:00</div>
+        </div>
+        <audio id="audio-element"></audio>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="waveform.js"></script>
+    <script>
+        $(document).ready(function() {
+            let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            $('#waveform').waveform({
+                audioElement: '#audio-element',
+                audioContext: audioContext,
+                segments: 100,
+                samplingQuality: 'medium',
+                activeColor: "#2196F3",
+                inactiveColor: "#E3F2FD",
+                loadingText: "Loading waveform...",
+                onProgressChange: function(progress) {
+                    // Handle progress change
+                },
+                onSeek: function(progress) {
+                    // Handle seek
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+```
+
+## Performance Tips
+
+- For large audio files, use `samplingQuality: 'low'`
+- Adjust `segments` value based on container width
+- Consider using a lower number of segments for mobile devices
 
 ## Browser Support
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-- Opera (latest)
-- Mobile browsers with touch support
+- Chrome 34+
+- Firefox 25+
+- Safari 6+
+- Edge 12+
+- Opera 21+
+- iOS Safari 6+
+- Android Browser 4.4+
 
 ## License
 
