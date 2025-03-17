@@ -1,9 +1,9 @@
 # jQuery Waveform Player
 
-A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates.
-
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+
+A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates.
 
 ## Demo
 
