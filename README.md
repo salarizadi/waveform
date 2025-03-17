@@ -1,10 +1,9 @@
 # jQuery Waveform Player
-
-A lightweight and customizable audio waveform visualization plugin for jQuery. This plugin creates an interactive waveform display for audio files with real-time progress tracking and seeking capabilities.
-
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/salarizadi/waveform)
 [![Demo on CodePen](https://img.shields.io/badge/Demo-CodePen-blue)](https://codepen.io/salariz/pen/PwoQpXp)
+
+A lightweight and customizable audio waveform visualization plugin for jQuery. This plugin creates an interactive waveform display for audio files with real-time progress tracking and seeking capabilities.
 
 ## Demo
 
