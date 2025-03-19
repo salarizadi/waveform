@@ -1,7 +1,9 @@
 # jQuery Waveform Player
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/salarizadi/waveform)
-[![Demo on CodePen](https://img.shields.io/badge/Demo-CodePen-blue)](https://codepen.io/salariz/pen/PwoQpXp)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/salarizadi/waveform)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/salarizadi/waveform/blob/main/LICENSE)
+[![jsDelivr](https://data.jsdelivr.com/v1/package/gh/salarizadi/swipetoast/badge)](https://www.jsdelivr.com/package/gh/salarizadi/waveform)
+[![jQuery](https://img.shields.io/badge/jquery-%3E%3D%201.7-yellow.svg)](https://jquery.com/)
+[![CodePen demo](https://img.shields.io/badge/CodePen-demo-blue.svg)](https://codepen.io/salariz/pen/PwoQpXp)
 
 A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates. This plugin offers an enhanced audio playback experience with detailed waveform visualization and interactive controls.
 
@@ -26,8 +28,7 @@ Check out the [live demo on CodePen](https://codepen.io/salariz/pen/PwoQpXp)
 ## Installation
 
 ```html
-<script src="jquery.min.js"></script>
-<script src="jquery.waveform.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/salarizadi/waveform/jquery.waveform.min.js"></script>
 ```
 
 ## Basic Usage
