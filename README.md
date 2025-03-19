@@ -1,9 +1,9 @@
 # jQuery Waveform Player
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/salarizadi/waveform)
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/salarizadi/waveform)
 [![Demo on CodePen](https://img.shields.io/badge/Demo-CodePen-blue)](https://codepen.io/salariz/pen/PwoQpXp)
 
-A lightweight and customizable audio waveform visualization plugin for jQuery. This plugin creates an interactive waveform display for audio files with real-time progress tracking and seeking capabilities.
+A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates. This plugin offers an enhanced audio playback experience with detailed waveform visualization and interactive controls.
 
 ## Demo
 
@@ -12,13 +12,16 @@ Check out the [live demo on CodePen](https://codepen.io/salariz/pen/PwoQpXp)
 ## Features
 
 - 🎵 Real-time waveform visualization
-- 🎨 Customizable appearance
-- 📱 Mobile-friendly touch interactions
-- 🔍 Seeking functionality
-- ⚡ Optimized for large audio files
-- 🎚️ Adjustable sampling quality
-- 📊 Progress tracking
-- 🎯 Event callbacks
+- 🎨 Customizable appearance with dynamic theming
+- 📱 Mobile-friendly with touch interaction support
+- 🔍 Precise seeking functionality
+- ⚡ Performance-optimized for large audio files
+- 🎚️ Adjustable sampling quality (low, medium, high)
+- 📊 Real-time progress tracking
+- 🎯 Comprehensive event callbacks
+- 💾 Export and restore waveform data
+- 🔄 Chunked processing for improved performance
+- 📱 Touch-friendly with multi-device support
 
 ## Installation
 
@@ -51,21 +54,24 @@ $(document).ready(function() {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `audioElement` | String | "#audio-element" | Selector for the audio element |
-| `audioContext` | AudioContext | null | Web Audio API context |
+| `audioContext` | AudioContext | null | Web Audio API context (required) |
 | `segments` | Number | 100 | Number of waveform segments |
 | `segmentGap` | Number | 1 | Gap between segments in pixels |
 | `activeColor` | String | "#2196F3" | Color of the played portion |
 | `inactiveColor` | String | "#ccc" | Color of the unplayed portion |
 | `backgroundColor` | String | "#f5f5f5" | Background color of the container |
 | `samplingQuality` | String | "medium" | Quality of waveform sampling ("low", "medium", "high") |
-| `loadingText` | String | "Loading waveform..." | Text shown while generating waveform |
+| `loadingText` | String | "Loading waveform..." | Text shown while generating waveform (or null) |
+| `onProgressChange` | Function | null | Callback for progress changes |
+| `onSeek` | Function | null | Callback for seek events |
 
-## Events
+## Methods
 
-| Event | Description |
-|-------|-------------|
-| `onProgressChange` | Triggered when playback progress changes |
-| `onSeek` | Triggered when user seeks to a new position |
+| Method | Description |
+|--------|-------------|
+| `export()` | Exports the waveform data for later use |
+| `restore(exportedData)` | Restores previously exported waveform data |
+| `destroy()` | Removes the waveform player and cleans up resources |
 
 ## Complete Example
 
@@ -88,13 +94,13 @@ $(document).ready(function() {
         <audio id="audio-element"></audio>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="waveform.js"></script>
     <script>
         $(document).ready(function() {
             let audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            $('#waveform').waveform({
+            let waveform = $('#waveform').waveform({
                 audioElement: '#audio-element',
                 audioContext: audioContext,
                 segments: 100,
@@ -102,24 +108,32 @@ $(document).ready(function() {
                 activeColor: "#2196F3",
                 inactiveColor: "#E3F2FD",
                 loadingText: "Loading waveform...",
-                onProgressChange: function(progress) {
+                onProgressChange: function (progress) {
                     // Handle progress change
                 },
-                onSeek: function(progress) {
+                onSeek: function (progress) {
                     // Handle seek
                 }
             });
+
+            // Example of exporting waveform data
+            const exportedData = waveform.data('waveform').export();
+
+            // Example of restoring waveform data
+            waveform.data('waveform').restore(exportedData);
         });
     </script>
 </body>
 </html>
 ```
 
-## Performance Tips
+## Performance Optimization
 
-- For large audio files, use `samplingQuality: 'low'`
+- Use `samplingQuality: 'low'` for large audio files
 - Adjust `segments` value based on container width
 - Consider using a lower number of segments for mobile devices
+- Take advantage of the chunked processing feature for large files
+- Use the export/restore methods to cache waveform data for frequently used audio files
 
 ## Browser Support
 
@@ -130,6 +144,12 @@ $(document).ready(function() {
 - Opera 21+
 - iOS Safari 6+
 - Android Browser 4.4+
+
+## Technical Requirements
+
+- jQuery 1.7+
+- Web Audio API support in the browser
+- Modern browser with ES6+ support
 
 ## License
 
