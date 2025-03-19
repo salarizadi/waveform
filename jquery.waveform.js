@@ -1,6 +1,6 @@
 /**
  *  Copyright (c) 2025
- *  @Version : 2.0.0
+ *  @Version : 2.1.0
  *  @Author  : https://salarizadi.ir
  *  @Repository : https://github.com/salarizadi/waveform
  *  @Description: A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates.
@@ -9,12 +9,14 @@
 (function ($) {
     "use strict";
 
+    const VERSION = "2.1.0";
+
     const WaveformPlayer = function (element, options) {
         this.settings = $.extend({}, WaveformPlayer.defaults, options);
-        this.element = $(element);
+        this.element  = $(element);
         this.audioElement = $(this.settings.audioElement)[0];
         this.audioContext = this.settings.audioContext;
-        this.isDragging = false;
+        this.isDragging   = false;
         this.tempProgress = 0;
         this.segments = [];
         this.waveformData = null;
@@ -37,6 +39,7 @@
     };
 
     WaveformPlayer.prototype = {
+        
         init: function () {
             if (!this.audioContext) {
                 console.error("AudioContext is required");
@@ -195,6 +198,7 @@
                     height: "100%",
                     background: this.settings.inactiveColor
                 });
+                background.addClass('segment');
 
                 const progress = $("<div>").css({
                     position: "absolute",
@@ -205,6 +209,7 @@
                     background: this.settings.activeColor,
                     transform: "translateX(-100%)"
                 });
+                progress.addClass('fill');
 
                 segment.append(background, progress);
                 this.segments.push(segment);
@@ -262,19 +267,24 @@
         },
 
         handleStart: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             this.isDragging = true;
             const x = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
             this.updateVisualProgress(x);
         },
 
         handleMove: function (e) {
-            if (!this.isDragging) return;
             e.preventDefault();
+            e.stopPropagation();
+            if (!this.isDragging) return;
             const x = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
             this.updateVisualProgress(x);
         },
 
-        handleEnd: function () {
+        handleEnd: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
             if (this.isDragging) {
                 this.isDragging = false;
                 if (this.settings.onSeek) {
@@ -296,11 +306,52 @@
             }
         },
 
+        export: function () {
+            if (!this.waveformData) {
+                console.warn("No waveform data available to export");
+                return null;
+            }
+
+            return {
+                version: VERSION,
+                data: this.waveformData,
+                settings: {
+                    samplingQuality: this.settings.samplingQuality
+                }
+            };
+        },
+
+        restore: function (exportedData) {
+            if (!exportedData || !exportedData.data || !Array.isArray(exportedData.data)) {
+                console.error("Invalid waveform data format");
+                return false;
+            }
+
+            try {
+                // Store the imported data
+                this.waveformData = exportedData.data;
+
+                // Update sampling quality if it exists in the exported data
+                if (exportedData.settings && exportedData.settings.samplingQuality) {
+                    this.settings.samplingQuality = exportedData.settings.samplingQuality;
+                }
+
+                // Generate the visual segments using current settings
+                this.generateSegments();
+
+                return true;
+            } catch (error) {
+                console.error("Error restoring waveform data:", error);
+                return false;
+            }
+        },
+
         destroy: function () {
             this.element.off();
             this.waveform.remove();
             this.element.removeData("waveform");
         }
+        
     };
 
     $.fn.waveform = function (options) {
