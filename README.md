@@ -1,5 +1,5 @@
 # jQuery Waveform Player
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/salarizadi/waveform)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/salarizadi/waveform)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/salarizadi/waveform/blob/main/LICENSE)
 [![jsDelivr](https://data.jsdelivr.com/v1/package/gh/salarizadi/swipetoast/badge)](https://www.jsdelivr.com/package/gh/salarizadi/waveform)
 [![jQuery](https://img.shields.io/badge/jquery-%3E%3D%201.7-yellow.svg)](https://jquery.com/)
