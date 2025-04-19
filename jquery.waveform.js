@@ -1,15 +1,91 @@
 /**
  *  Copyright (c) 2025
- *  @Version : 2.1.0
+ *  @Version : 2.2.0
  *  @Author  : https://salarizadi.ir
  *  @Repository : https://github.com/salarizadi/waveform
- *  @Description: A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support and real-time updates.
+ *  @Description: A sleek and interactive audio visualization plugin that creates a customizable waveform player with touch support, real-time updates, and RTL support.
  */
 
 (function ($) {
     "use strict";
 
-    const VERSION = "2.1.0";
+    const VERSION = "2.2.0";
+
+    const workerFunction = function () {
+        self.onmessage = async function (e) {
+            const {channelData, segments, samplingQuality} = e.data;
+
+            const waveformData = [];
+            const samplesPerSegment = Math.floor(channelData.length / segments);
+            const sampleStep = getSamplingRate(channelData.length, samplingQuality, segments);
+
+            // Process in chunks
+            const chunkSize = 1000;
+            for (let i = 0; i < segments; i += chunkSize) {
+                const end = Math.min(i + chunkSize, segments);
+                const chunkData = [];
+
+                for (let j = i; j < end; j++) {
+                    const startSample = j * samplesPerSegment;
+                    const endSample = Math.min(startSample + samplesPerSegment, channelData.length);
+
+                    let sum = 0;
+                    let sampleCount = 0;
+
+                    for (let k = startSample; k < endSample; k += sampleStep) {
+                        sum += Math.abs(channelData[k]);
+                        sampleCount++;
+                    }
+
+                    const average = sum / sampleCount;
+                    chunkData.push(average);
+                }
+
+                // Send progress updates
+                const progress = Math.round((end / segments) * 100);
+                self.postMessage({type: 'progress', progress});
+
+                waveformData.push(...chunkData);
+            }
+
+            // Fast normalization
+            const maxPeak = Math.max(...waveformData);
+            const scale = 80 / maxPeak;
+            const normalizedData = waveformData.map(peak => 10 + peak * scale);
+
+            self.postMessage({type: 'complete', data: normalizedData});
+        };
+
+        function getSamplingRate (totalSamples, quality, segments) {
+            const samplesPerSegment = Math.floor(totalSamples / segments);
+
+            switch (quality) {
+                case "low":
+                    return Math.max(1, Math.floor(samplesPerSegment / 5));
+                case "medium":
+                    return Math.max(1, Math.floor(samplesPerSegment / 10));
+                case "high":
+                    return Math.max(1, Math.floor(samplesPerSegment / 20));
+                default:
+                    return Math.max(1, Math.floor(samplesPerSegment / 10));
+            }
+        }
+    };
+
+    const createInlineWorker = func => {
+        const functionString = func.toString();
+
+        const blob = new Blob([`(${functionString})()`], {
+            type: 'application/javascript'
+        });
+
+        const workerURL = URL.createObjectURL(blob);
+        const worker = new Worker(workerURL);
+
+        URL.revokeObjectURL(workerURL);
+
+        return worker;
+    };
 
     const WaveformPlayer = function (element, options) {
         this.settings = $.extend({}, WaveformPlayer.defaults, options);
@@ -20,6 +96,7 @@
         this.tempProgress = 0;
         this.segments = [];
         this.waveformData = null;
+        this.interactionEnabled = false;
 
         this.init();
     };
@@ -32,14 +109,16 @@
         activeColor: "#2196F3",
         inactiveColor: "#ccc",
         backgroundColor: "#f5f5f5",
+        rtl: false,
+        onRendered: null, // Callback when waveform is fully rendered
         onProgressChange: null,
         onSeek: null,
         samplingQuality: "medium", // 'low', 'medium', 'high'
-        loadingText: "Loading waveform..." // OR null
+        loadingText: "Loading waveform...", // OR null
     };
 
     WaveformPlayer.prototype = {
-        
+
         init: function () {
             if (!this.audioContext) {
                 console.error("AudioContext is required");
@@ -48,6 +127,69 @@
 
             this.createContainer();
             this.bindEvents();
+            
+            // Initially disable interaction until the audio is ready
+            this.disableInteraction();
+            
+            // Add loading indicator
+            this.addLoadingIndicator();
+            
+            // Enable interaction when the audio metadata is loaded
+            $(this.audioElement).one('loadedmetadata', () => {
+                if (this.audioElement.duration && !isNaN(this.audioElement.duration)) {
+                    this.enableInteraction();
+                    this.removeLoadingIndicator();
+                }
+            });
+        },
+        
+        addLoadingIndicator: function() {
+            if (this.element.find('.waveform-loading-indicator').length === 0) {
+                this.loadingIndicator = $("<div>")
+                    .addClass('waveform-loading-indicator')
+                    .css({
+                        position: "absolute",
+                        top: "0",
+                        left: "0",
+                        width: "100%",
+                        height: "100%",
+                        background: "rgba(0,0,0,0.05)",
+                        borderRadius: "18px",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: "10"
+                    });
+                
+                const loadingText = $("<span>")
+                    .html(this.settings.loadingText)
+                    .css({
+                        fontSize: "10px",
+                        color: "#666",
+                        opacity: "0.7"
+                    });
+                
+                this.loadingIndicator.append(loadingText);
+                this.element.append(this.loadingIndicator);
+            }
+        },
+        
+        removeLoadingIndicator: function() {
+            if (this.loadingIndicator) {
+                this.loadingIndicator.fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }
+        },
+        
+        disableInteraction: function() {
+            this.interactionEnabled = false;
+            this.element.css('cursor', 'not-allowed');
+        },
+        
+        enableInteraction: function() {
+            this.interactionEnabled = true;
+            this.element.css('cursor', 'pointer');
         },
 
         createContainer: function () {
@@ -68,6 +210,10 @@
                 WebkitTapHighlightColor: "transparent"
             });
 
+            const rtlStyle = this.settings.rtl ? 
+                { direction: "rtl", flexDirection: "row-reverse" } : 
+                { direction: "ltr", flexDirection: "row" };
+
             this.waveform = $("<div>").addClass("waveform").css({
                 position: "absolute",
                 top: "0",
@@ -77,144 +223,141 @@
                 display: "flex",
                 alignItems: "center",
                 padding: "0 12px",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                ...rtlStyle
             });
 
             this.element.append(this.waveform);
         },
 
-        getSamplingRate (totalSamples, quality) {
-            const samplesPerSegment = Math.floor(
-                totalSamples / this.settings.segments
-            );
-
-            switch (quality) {
-                case "low":
-                    return Math.max(1, Math.floor(samplesPerSegment / 5)); // 5 samples per segment
-                case "medium":
-                    return Math.max(1, Math.floor(samplesPerSegment / 10)); // 10 samples per segment
-                case "high":
-                    return Math.max(1, Math.floor(samplesPerSegment / 20)); // 20 samples per segment
-                default:
-                    return Math.max(1, Math.floor(samplesPerSegment / 10));
-            }
-        },
-
         async loadAudioData (arrayBuffer) {
             try {
-                // Add loading indicator
-                const loadingIndicator = $("<div>")
-                    .css({
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        color: "#666",
-                        fontSize: "12px"
-                    })
-                    .text(this.settings.loadingText);
-                this.element.append(loadingIndicator);
+                this.addLoadingIndicator();
 
-                const audioBuffer = await this.audioContext.decodeAudioData(
-                    arrayBuffer
-                );
-                const channelData = audioBuffer.getChannelData(0);
-                const waveformData = [];
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                const channelData = Array.from(audioBuffer.getChannelData(0));
 
-                const samplesPerSegment = Math.floor(
-                    channelData.length / this.settings.segments
-                );
-                const sampleStep = this.getSamplingRate(
-                    channelData.length,
-                    this.settings.samplingQuality
-                );
+                const worker = createInlineWorker(workerFunction);
 
-                // Process in chunks for better performance
-                const chunkSize = 1000; // Process 1000 segments at a time
-                for (let i = 0; i < this.settings.segments; i += chunkSize) {
-                    await new Promise((resolve) => setTimeout(resolve, 0)); // Let UI breathe
+                return new Promise((resolve, reject) => {
+                    worker.onmessage = (e) => {
+                        const { type, data, progress } = e.data;
 
-                    const end = Math.min(i + chunkSize, this.settings.segments);
-                    for (let j = i; j < end; j++) {
-                        const startSample = j * samplesPerSegment;
-                        const endSample = Math.min(
-                            startSample + samplesPerSegment,
-                            channelData.length
-                        );
+                        if (type === 'progress') {
+                            const loadingIndicator = this.element.find('.waveform-loading-indicator span');
+                            loadingIndicator.html(`${this.settings.loadingText} ${progress}%`);
+                        } else if (type === 'complete') {
+                            this.waveformData = data;
+                            this.removeLoadingIndicator();
+                            this.generateSegments();
 
-                        let sum = 0;
-                        let sampleCount = 0;
+                            if (this.audioElement.duration && !isNaN(this.audioElement.duration)) {
+                                this.enableInteraction();
+                            }
 
-                        for (let k = startSample; k < endSample; k += sampleStep) {
-                            sum += Math.abs(channelData[k]);
-                            sampleCount++;
+                            worker.terminate();
+                            resolve();
                         }
+                    };
 
-                        const average = sum / sampleCount;
-                        waveformData.push(average);
-                    }
+                    worker.onerror = (error) => {
+                        console.error('Worker error:', error);
+                        worker.terminate();
+                        reject(error);
+                    };
 
-                    // Update loading progress
-                    const progress = Math.round((end / this.settings.segments) * 100);
-                    loadingIndicator.text(`${this.settings.loadingText} ${progress}%`);
-                }
+                    worker.postMessage({
+                        channelData,
+                        segments: this.settings.segments,
+                        samplingQuality: this.settings.samplingQuality
+                    });
+                });
 
-                // Fast normalization
-                const maxPeak = Math.max(...waveformData);
-                const scale = 80 / maxPeak;
-
-                this.waveformData = waveformData.map((peak) => 10 + peak * scale);
-
-                // Remove loading indicator
-                loadingIndicator.remove();
-
-                this.generateSegments();
             } catch (error) {
-                console.error("Error decoding audio data:", error);
+                console.error("Error processing audio data:", error);
+                this.handleError();
+                throw error;
             }
         },
 
         generateSegments: function () {
             if (!this.waveformData) return;
 
+            // Clear existing content
             this.waveform.empty();
+
+            // Create document fragment for better performance
+            const fragment = document.createDocumentFragment();
             this.segments = [];
 
-            this.waveformData.forEach((height) => {
-                const segment = $("<div>").css({
-                    flex: "1",
-                    margin: `0 ${this.settings.segmentGap}px`,
-                    height: height + "%",
-                    position: "relative",
-                    borderRadius: "1px",
-                    overflow: "hidden"
-                });
+            // Create elements in batches
+            const batchSize = 50;
+            const totalSegments = this.waveformData.length;
+            let currentBatch = 0;
 
-                const background = $("<div>").css({
-                    position: "absolute",
-                    top: "0",
-                    left: "0",
-                    width: "100%",
-                    height: "100%",
-                    background: this.settings.inactiveColor
-                });
-                background.addClass('segment');
+            const processNextBatch = () => {
+                const start = currentBatch * batchSize;
+                const end = Math.min(start + batchSize, totalSegments);
 
-                const progress = $("<div>").css({
-                    position: "absolute",
-                    top: "0",
-                    left: "-100%",
-                    width: "100%",
-                    height: "100%",
-                    background: this.settings.activeColor,
-                    transform: "translateX(-100%)"
-                });
-                progress.addClass('fill');
+                for (let i = start; i < end; i++) {
+                    const height = this.waveformData[this.settings.rtl ? totalSegments - 1 - i : i];
 
-                segment.append(background, progress);
-                this.segments.push(segment);
-                this.waveform.append(segment);
-            });
+                    const segment = $("<div>").css({
+                        flex: "1",
+                        margin: `0 ${this.settings.segmentGap}px`,
+                        height: height + "%",
+                        position: "relative",
+                        borderRadius: "1px",
+                        overflow: "hidden"
+                    })[0];
+
+                    const background = $("<div>").css({
+                        position: "absolute",
+                        top: "0",
+                        left: "0",
+                        width: "100%",
+                        height: "100%",
+                        background: this.settings.inactiveColor
+                    }).addClass('segment')[0];
+
+                    const progress = $("<div>").css({
+                        position: "absolute",
+                        top: "0",
+                        height: "100%",
+                        background: this.settings.activeColor,
+                        [this.settings.rtl ? 'right' : 'left']: "0",
+                        [this.settings.rtl ? 'left' : 'right']: "auto",
+                        width: "0%"
+                    }).addClass('fill')[0];
+
+                    segment.appendChild(background);
+                    segment.appendChild(progress);
+
+                    this.segments.push($(segment));
+                    fragment.appendChild(segment);
+                }
+
+                if (end < totalSegments) {
+                    currentBatch++;
+                    // Use requestAnimationFrame for smooth rendering
+                    requestAnimationFrame(processNextBatch);
+                } else {
+                    // Append all segments at once
+                    this.waveform[0].appendChild(fragment);
+
+                    if (this.settings.onRendered) {
+                        this.settings.onRendered(this);
+                    }
+
+                    if (this.audioElement.duration && !isNaN(this.audioElement.duration)) {
+                        this.enableInteraction();
+                        this.removeLoadingIndicator();
+                    }
+                }
+            };
+
+            // Start processing batches
+            requestAnimationFrame(processNextBatch);
         },
 
         updateProgress: function (progress) {
@@ -224,31 +367,64 @@
             const fullSegments = Math.floor(totalProgress);
             const partialProgress = (totalProgress - fullSegments) * 100;
 
-            this.segments.forEach((segment, index) => {
-                const progressDiv = segment.children().last();
-                if (index < fullSegments) {
-                    progressDiv.css("transform", "translateX(100%)");
-                } else if (index === fullSegments) {
-                    progressDiv.css("transform", `translateX(${partialProgress}%)`);
-                } else {
-                    progressDiv.css("transform", "translateX(-100%)");
+            if (this.settings.rtl) {
+                // RTL mode: fill from right to left
+                for (let i = 0; i < this.segments.length; i++) {
+                    const segment = this.segments[i];
+                    const progressDiv = segment.children().last();
+
+                    // Since display is reversed, we need inverse logic for filling
+                    if (i >= this.segments.length - fullSegments) {
+                        // Fill completely
+                        progressDiv.css("width", "100%");
+                    } else if (i === this.segments.length - fullSegments - 1) {
+                        // Partial fill
+                        progressDiv.css("width", `${partialProgress}%`);
+                    } else {
+                        // No fill
+                        progressDiv.css("width", "0%");
+                    }
                 }
-            });
+            } else {
+                // LTR mode: fill from left to right
+                this.segments.forEach((segment, index) => {
+                    const progressDiv = segment.children().last();
+
+                    if (index < fullSegments) {
+                        // Fill completely
+                        progressDiv.css("width", "100%");
+                    } else if (index === fullSegments) {
+                        // Partial fill
+                        progressDiv.css("width", `${partialProgress}%`);
+                    } else {
+                        // No fill
+                        progressDiv.css("width", "0%");
+                    }
+                });
+            }
         },
 
         bindEvents: function () {
             // Handle file loading
             $(this.audioElement).on("loadeddata", () => {
                 if (this.audioElement.src && !this.waveformData) {
+                    this.disableInteraction();
+                    this.addLoadingIndicator();
                     fetch(this.audioElement.src)
                         .then((response) => response.arrayBuffer())
                         .then((arrayBuffer) => this.loadAudioData(arrayBuffer));
                 }
             });
 
+            // When src changes or audio element is reset
+            $(this.audioElement).on("emptied", () => {
+                this.disableInteraction();
+                this.addLoadingIndicator();
+            });
+
             // Handle progress updates
             $(this.audioElement).on("timeupdate", () => {
-                if (!this.isDragging && this.audioElement.duration) {
+                if (!this.isDragging && this.audioElement.duration && !isNaN(this.audioElement.duration)) {
                     const progress =
                         this.audioElement.currentTime / this.audioElement.duration;
                     this.updateProgress(progress);
@@ -269,6 +445,12 @@
         handleStart: function (e) {
             e.preventDefault();
             e.stopPropagation();
+            
+            // Skip if interaction is not enabled or audio is not ready
+            if (!this.interactionEnabled || !this.audioElement.duration || isNaN(this.audioElement.duration)) {
+                return;
+            }
+            
             this.isDragging = true;
             const x = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
             this.updateVisualProgress(x);
@@ -277,7 +459,7 @@
         handleMove: function (e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!this.isDragging) return;
+            if (!this.isDragging || !this.interactionEnabled) return;
             const x = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
             this.updateVisualProgress(x);
         },
@@ -285,9 +467,9 @@
         handleEnd: function (e) {
             e.preventDefault();
             e.stopPropagation();
-            if (this.isDragging) {
+            if (this.isDragging && this.interactionEnabled) {
                 this.isDragging = false;
-                if (this.settings.onSeek) {
+                if (this.settings.onSeek && this.audioElement.duration && !isNaN(this.audioElement.duration)) {
                     this.settings.onSeek(this.tempProgress);
                 }
             }
@@ -295,13 +477,25 @@
 
         updateVisualProgress: function (x) {
             const rect = this.element[0].getBoundingClientRect();
-            this.tempProgress = Math.max(
-                0,
-                Math.min(1, (x - rect.left) / rect.width)
-            );
+            let progress;
+            
+            if (this.settings.rtl) {
+                progress = Math.max(
+                    0,
+                    Math.min(1, 1 - ((x - rect.left) / rect.width))
+                );
+            } else {
+                progress = Math.max(
+                    0,
+                    Math.min(1, (x - rect.left) / rect.width)
+                );
+            }
+            
+            this.tempProgress = progress;
             this.updateProgress(this.tempProgress);
 
-            if (this.settings.onProgressChange) {
+            if (this.settings.onProgressChange && this.audioElement && 
+                this.audioElement.duration && !isNaN(this.audioElement.duration)) {
                 this.settings.onProgressChange(this.tempProgress);
             }
         },
@@ -316,7 +510,8 @@
                 version: VERSION,
                 data: this.waveformData,
                 settings: {
-                    samplingQuality: this.settings.samplingQuality
+                    samplingQuality: this.settings.samplingQuality,
+                    rtl: this.settings.rtl
                 }
             };
         },
@@ -331,9 +526,15 @@
                 // Store the imported data
                 this.waveformData = exportedData.data;
 
-                // Update sampling quality if it exists in the exported data
-                if (exportedData.settings && exportedData.settings.samplingQuality) {
-                    this.settings.samplingQuality = exportedData.settings.samplingQuality;
+                // Update settings if they exist in the exported data
+                if (exportedData.settings) {
+                    if (exportedData.settings.samplingQuality) {
+                        this.settings.samplingQuality = exportedData.settings.samplingQuality;
+                    }
+                    
+                    if (exportedData.settings.rtl !== undefined) {
+                        this.settings.rtl = exportedData.settings.rtl;
+                    }
                 }
 
                 // Generate the visual segments using current settings
@@ -351,7 +552,7 @@
             this.waveform.remove();
             this.element.removeData("waveform");
         }
-        
+
     };
 
     $.fn.waveform = function (options) {
